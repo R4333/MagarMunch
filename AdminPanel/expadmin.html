@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet"
+        crossorigin="anonymous">
+    <style>
+        body {
+            background-color: lightblue;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Content goes here -->
+
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">Admin Dashboard</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="orders.html">Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="customers.html">Customers</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="areacode.html">Area Codes</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="deliveryboy.html">Delivery Boys</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="menuItems.html">Menu Items</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Summary -->
+    <div id="summary" class="container">
+        <h2>Summary</h2>
+        <div id="data"></div>
+        <canvas id="summaryChart"></canvas>
+    </div>
+
+    <div class="container-fluid">
+        <h2>Earnings Per Day</h2>
+        <canvas id="earningsPerDay"></canvas>
+
+        
+        
+
+    </div>
+
+
+
+
+
+
+
+    <script>
+        async function fetchSummary() {
+            const response = await fetch('http://localhost:8080/api/adminsummary');
+            const data = await response.json();
+            console.log(data);
+            displaySummary(data[0]);
+            createSummaryChart(data[0]);
+        }
+
+        function createSummaryChart(data) {
+            const ctx = document.getElementById('summaryChart').getContext('2d');
+            const labels = Object.keys(data);
+            const values = Object.values(data);
+
+            const chart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Summary',
+                        data: values,
+                        backgroundColor: [
+                            'rgba(75, 192, 192, 0.2)',
+                        ],
+                        borderColor: [
+                            'blue',
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+
+
+        function displaySummary(data) {
+            const summaryDiv = document.getElementById('data');
+
+            // Create the table element
+            const table = document.createElement('table');
+            table.classList.add('table'); // Add Bootstrap table class for styling
+
+            // Create the table head and body
+            const thead = document.createElement('thead');
+            const tbody = document.createElement('tbody');
+
+            // Add table head and body to the table
+            table.appendChild(thead);
+            table.appendChild(tbody);
+
+            // Iterate through the data and create table rows and cells
+            for (const key in data) {
+                const row = document.createElement('tr');
+                const keyCell = document.createElement('td');
+                keyCell.innerHTML = key;
+                const valueCell = document.createElement('td');
+                valueCell.innerHTML = data[key];
+                row.appendChild(keyCell);
+                row.appendChild(valueCell);
+                tbody.appendChild(row);
+
+                // make text bold
+                keyCell.style.fontWeight = 'bold';
+
+                // make text right aligned
+                valueCell.style.textAlign = 'right';
+
+                // make valueCell bold
+                valueCell.style.fontWeight = 'bold';
+
+
+
+
+            }
+
+            // Append the table to the summaryDiv
+            summaryDiv.appendChild(table);
+        }
+
+
+        fetchSummary();
+
+        async function createCharts() {
+            const orders = await fetchData("http://localhost:8080/api/orders");
+            const orderDetails = await fetchData("http://localhost:8080/api/orderdetails");
+            const foodItems = await fetchData("http://localhost:8080/api/fooditems");
+            const customers = await fetchData("http://localhost:8080/api/customers");
+            const deliveryBoys = await fetchData("http://localhost:8080/api/deliveryboys");
+
+            // Process data for each graph
+            const earningsPerDayData = processEarningsPerDay(orders);
+            const topDeliveryBoysData = processTopDeliveryBoys(orders, deliveryBoys);
+            const topCustomersData = processTopCustomers(orders, customers);
+            const popularFoodItemsData = processPopularFoodItems(orderDetails, foodItems);
+
+            // Create charts for each processed dataset
+            createChart(earningsPerDayData, 'earningsPerDay');
+            // createChart(topDeliveryBoysData, 'topDeliveryBoys');
+            // createChart(topCustomersData, 'topCustomers');
+            // createChart(popularFoodItemsData, 'popularFoodItems');
+        }
+
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(endpoint);
+                if (!response.ok) {
+                    throw new Error(`HTTP error: \${response.status}`);
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                return [];
+            }
+        }
+
+
+        function processEarningsPerDay(orders) {
+            const earnings = {};
+
+            orders.forEach(order => {
+                const orderDate = new Date(order.OrderDate).toLocaleDateString();
+                if (earnings[orderDate]) {
+                    earnings[orderDate] += order.TotalAmount;
+                } else {
+                    earnings[orderDate] = order.TotalAmount;
+                }
+            });
+
+            return earnings;
+        }
+
+        function processTopDeliveryBoys(orders, deliveryBoys) {
+            const deliveryBoyOrders = {};
+
+            orders.forEach(order => {
+                const deliveryBoyID = order.DeliveryBoyID;
+                if (deliveryBoyOrders[deliveryBoyID]) {
+                    deliveryBoyOrders[deliveryBoyID]++;
+                } else {
+                    deliveryBoyOrders[deliveryBoyID] = 1;
+                }
+            });
+
+            const topDeliveryBoys = Object.entries(deliveryBoyOrders)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 3)
+                .map(entry => {
+                    const deliveryBoy = deliveryBoys.find(db => db.ID === parseInt(entry[0]));
+                    return { name: deliveryBoy.Name, orders: entry[1] };
+                });
+
+            return topDeliveryBoys;
+        }
+
+        function processTopCustomers(orders, customers) {
+            const customerOrders = {};
+
+            orders.forEach(order => {
+                const customerID = order.CustomerID;
+                if (customerOrders[customerID]) {
+                    customerOrders[customerID]++;
+                } else {
+                    customerOrders[customerID] = 1;
+                }
+            });
+
+            const topCustomers = Object.entries(customerOrders)
+                .sort((a, b) => b[1] - a[1])
+                .map(entry => {
+                    const customer = customers.find(c => c.ID === parseInt(entry[0]));
+                    return { name: customer.Name, orders: entry[1] };
+                });
+
+            return topCustomers;
+        }
+
+        function processPopularFoodItems(orderDetails, foodItems) {
+            const foodItemOrders = {};
+
+            orderDetails.forEach(orderDetail => {
+                const foodItemID = orderDetail.FoodItemID;
+                if (foodItemOrders[foodItemID]) {
+                    foodItemOrders[foodItemID] += orderDetail.Quantity;
+                } else {
+                    foodItemOrders[foodItemID] = orderDetail.Quantity;
+                }
+            });
+
+            const popularFoodItems = Object.entries(foodItemOrders)
+                .sort((a, b) => b[1] - a[1])
+                .map(entry => {
+                    const foodItem = foodItems.find(fi => fi.ID === parseInt(entry[0]));
+                    return { name: foodItem.Name, orders: entry[1] };
+                });
+
+            return popularFoodItems;
+        }
+
+
+        // Chart creation function
+        function createChart(data, canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+
+            const labels = Object.keys(data);
+            const chartData = Object.values(data);
+
+            const chartType = determineChartType(canvasId);
+
+            const chart = new Chart(ctx, {
+                type: chartType,
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: getChartLabel(canvasId),
+                            data: chartData,
+                            backgroundColor: getChartColors(chartData.length),
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    scales: chartType === 'bar' ? {
+                        y: {
+                            beginAtZero: true,
+                        },
+                    } : {},
+                },
+            });
+        }
+
+        function determineChartType(canvasId) {
+            switch (canvasId) {
+                case 'earningsPerDay':
+                case 'popularFoodItems':
+                    return 'bar';
+                case 'topDeliveryBoys':
+                case 'topCustomers':
+                    return 'pie';
+                default:
+                    return 'bar';
+            }
+        }
+
+        function getChartLabel(canvasId) {
+            switch (canvasId) {
+                case 'earningsPerDay':
+                    return 'Earnings per Day';
+                case 'topDeliveryBoys':
+                    return 'Top Delivery Boys';
+                case 'topCustomers':
+                    return 'Top Customers';
+                case 'popularFoodItems':
+                    return 'Popular Food Items';
+                default:
+                    return '';
+            }
+        }
+
+        function getChartColors(length) {
+            const colors = [
+                'blue',
+                'rgba(255, 206, 86, 0.8)',
+                'rgba(255, 99, 132, 0.8)',
+                'rgba(153, 102, 255, 0.8)',
+                'rgba(54, 162, 235, 0.8)',
+            ];
+
+            return Array.from({ length }, (_, i) => colors[i % colors.length]);
+        }
+
+
+        // Call createCharts function
+        createCharts();
+
+
+
+
+    </script>
+
+
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4"
+        crossorigin="anonymous"></script>
+</body>
+
+</html>
